@@ -15,10 +15,6 @@ func SplitIntoLines(para string) []string {
 	return lines
 }
 
-func SplitIntoWords(line string) []string {
-	return strings.Fields(line)
-}
-
 func LineBreakIndexes(text string) []int {
 	var indexes []int
 	for i, char := range text {

@@ -5,8 +5,27 @@ import (
 	"os"
 	"strings"
 
+	"github.com/yagnikpt/boomtypr/internal/utils"
 	"golang.org/x/term"
 )
+
+func GetLinesFromWrappedText(text string) []Line {
+	lineBreaks := utils.LineBreakIndexes(text)
+	lines := make([]Line, utils.CountLines(text))
+	linesFromPara := utils.SplitIntoLines(text)
+	for i, line := range linesFromPara {
+		startIdx := 0
+		if i > 0 {
+			startIdx = lineBreaks[i-1] + 1
+		}
+
+		lines[i] = Line{
+			Text:  []rune(line),
+			Start: startIdx,
+		}
+	}
+	return lines
+}
 
 func GetTermDimensions() (int, int, error) {
 	fd := int(os.Stdout.Fd())
@@ -20,7 +39,21 @@ func GetTermDimensions() (int, int, error) {
 	return width, height, nil
 }
 
-func GetPaddingToCenterVertically(height, lines, padding int) string {
+func CalcHorizontalPadding() int {
+	width, _, err := GetTermDimensions()
+	if err != nil {
+		panic(err)
+	}
+	if width < 60 {
+		return 4
+	}
+	if width < 80 {
+		return 8
+	}
+	return (width - 80) / 2
+}
+
+func CalcPaddingToCenterVertically(height, lines, padding int) string {
 	var b strings.Builder
 	halfHeight := height / 2
 	halfPadding := padding / 2

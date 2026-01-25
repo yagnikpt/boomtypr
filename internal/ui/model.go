@@ -12,16 +12,16 @@ import (
 )
 
 var (
-	frameStyles        = lipgloss.NewStyle().Padding(2, 30)
+	frameStyles        = lipgloss.NewStyle().Padding(2, CalcHorizontalPadding())
 	pendingCharStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("#4C4C4C"))
 	incorrectCharStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("9")).Underline(true)
 	cursorStyle        = lipgloss.NewStyle().Background(lipgloss.Color("7")).Foreground(lipgloss.Color("0"))
 )
 
-type State int
+type UIState int
 
 const (
-	StateMenu State = iota
+	StateMenu UIState = iota
 	StateTyping
 	StateResults
 )
@@ -34,11 +34,15 @@ type Line struct {
 }
 
 type Model struct {
-	State  State
-	Engine *typing.Engine
-	Lines  []Line
-	Width  int
-	Height int
+	Text          string
+	State         UIState
+	Engine        *typing.Engine
+	Lines         []Line
+	Width         int
+	Height        int
+	CursorVisible bool
+	Blinking      bool
+	BlinkID       int
 }
 
 func NewModel(words []string) Model {
@@ -46,40 +50,48 @@ func NewModel(words []string) Model {
 	termWidth, _, _ := GetTermDimensions()
 	frameX, _ := frameStyles.GetFrameSize()
 	wrappedPara := wordwrap.String(joinedWords, termWidth-frameX)
-	// fmt.Printf("%q", wrappedPara)
 	lineBreaks := utils.LineBreakIndexes(wrappedPara)
-	lines := make([]Line, utils.CountLines(wrappedPara))
-	linesFromPara := utils.SplitIntoLines(wrappedPara)
-	for i, line := range linesFromPara {
-		startIdx := 0
-		if i > 0 {
-			startIdx = lineBreaks[i-1] + 1
-		}
-
-		lines[i] = Line{
-			Text:  []rune(line),
-			Start: startIdx,
-		}
-	}
 
 	return Model{
-		State:  StateMenu,
-		Lines:  lines,
-		Engine: typing.NewEngine(joinedWords, utils.LineBreakIndexes(wrappedPara)),
+		Text:     joinedWords,
+		State:    StateMenu,
+		Lines:    GetLinesFromWrappedText(wrappedPara),
+		Engine:   typing.NewEngine(joinedWords, lineBreaks),
+		Blinking: true,
 	}
 }
 
 func (m Model) Init() tea.Cmd {
-	return nil
+	return blinkCmd()
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case blinkMsg:
+		if m.Blinking {
+			m.CursorVisible = !m.CursorVisible
+			return m, blinkCmd()
+		}
+		return m, nil
+
+	case resumeBlinkMsg:
+		if msg.id != m.BlinkID {
+			return m, nil
+		}
+		m.Blinking = true
+		return m, blinkCmd()
+
 	case tea.WindowSizeMsg:
+		frameStyles = frameStyles.Padding(2, CalcHorizontalPadding())
+		frameX, _ := frameStyles.GetFrameSize()
+		wrappedPara := wordwrap.String(m.Text, msg.Width-frameX)
+		m.Lines = GetLinesFromWrappedText(wrappedPara)
 		m.Width = msg.Width
 		m.Height = msg.Height
 
 	case tea.KeyMsg:
+		m.Blinking = false
+		m.CursorVisible = true
 		switch msg.String() {
 		case "ctrl+c":
 			return m, tea.Quit
@@ -90,6 +102,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.Engine.TypeChar(msg.Runes[0])
 			}
 		}
+
+		m.BlinkID++
+		return m, resumeBlinkCmd(m.BlinkID)
 	}
 
 	return m, nil
@@ -98,7 +113,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m Model) View() string {
 	var b strings.Builder
 
-	padding := GetPaddingToCenterVertically(m.Height, LinesWindowSize, 2)
+	padding := CalcPaddingToCenterVertically(m.Height, LinesWindowSize, 2)
 	b.WriteString(padding)
 	for i := m.Engine.CurrentLine; i < m.Engine.CurrentLine+LinesWindowSize && i < len(m.Lines); i++ {
 		line := m.Lines[i]
@@ -113,13 +128,13 @@ func (m Model) View() string {
 				rendered = incorrectCharStyle.Render(rendered)
 			}
 
-			if charIndex == m.Engine.CurrentChar {
+			if charIndex == m.Engine.CurrentChar && m.CursorVisible {
 				rendered = cursorStyle.Render(rendered)
 			}
 
 			b.WriteString(rendered)
 		}
-		if m.Engine.CurrentChar == line.Start+len(line.Text) {
+		if m.Engine.CurrentChar == line.Start+len(line.Text) && m.CursorVisible {
 			b.WriteString(cursorStyle.Render(" "))
 		}
 		b.WriteString("\n")
