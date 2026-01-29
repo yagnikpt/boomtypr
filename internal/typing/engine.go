@@ -32,10 +32,6 @@ func NewEngine(text string, lineBreaks []int) *Engine {
 	}
 }
 
-func (e *Engine) Start() {
-	// TODO: implement
-}
-
 func (e *Engine) TypeChar(char rune) {
 	if e.Finished {
 		return
@@ -78,12 +74,12 @@ func (e *Engine) UpdateLines(newLines []int) {
 	})
 }
 
-func (e *Engine) Reset() {
-	e.CurrentChar = 0
-	e.CurrentLine = 0
-	e.Finished = false
+// func (e *Engine) Reset() {
+// 	e.CurrentChar = 0
+// 	e.CurrentLine = 0
+// 	e.Finished = false
 
-	for i := range e.Track {
-		e.Track[i] = CharPending
-	}
-}
+// 	for i := range e.Track {
+// 		e.Track[i] = CharPending
+// 	}
+// }

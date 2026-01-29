@@ -52,6 +52,6 @@ func (s Stats) Accuracy() float64 {
 	return float64(s.CorrectChars) / float64(s.TotalChars) * 100
 }
 
-func (s *Stats) Reset() {
-	*s = Stats{}
-}
+// func (s *Stats) Reset() {
+// 	*s = Stats{}
+// }

@@ -1,17 +1,27 @@
 package wordlist
 
-import "math/rand"
+import (
+	_ "embed"
+	"encoding/json"
+	"math/rand"
+)
+
+//go:embed repo/en.json
+var repo []byte
 
 type WordList struct {
-	Name  string
-	Words []string
+	Name  string   `json:"name"`
+	Words []string `json:"words"`
 }
 
-func New(name string, words []string) *WordList {
-	return &WordList{
-		Name:  name,
-		Words: words,
+func New() *WordList {
+	var wl WordList
+
+	if err := json.Unmarshal(repo, &wl); err != nil {
+		panic(err)
 	}
+
+	return &wl
 }
 
 func (wl *WordList) GetRandomWords(n int) []string {

@@ -11,6 +11,7 @@ import (
 	"github.com/muesli/reflow/wordwrap"
 	"github.com/yagnikpt/boomtypr/internal/typing"
 	"github.com/yagnikpt/boomtypr/internal/utils"
+	"github.com/yagnikpt/boomtypr/internal/wordlist"
 )
 
 var (
@@ -38,7 +39,7 @@ type Line struct {
 }
 
 type Model struct {
-	Text   string
+	Text   []rune
 	State  UIState
 	Engine *typing.Engine
 	Lines  []Line
@@ -48,15 +49,16 @@ type Model struct {
 	typing.Model
 }
 
-func NewModel(words []string) Model {
+func NewModel(wordlist *wordlist.WordList) Model {
+	words := wordlist.GetRandomWords(50)
 	joinedWords := strings.Join(words, " ")
 	termWidth, _, _ := GetTermDimensions()
-	frameX, _ := frameStyles.GetFrameSize()
+	frameX := frameStyles.GetHorizontalFrameSize()
 	wrappedPara := wordwrap.String(joinedWords, termWidth-frameX)
 	lineBreaks := utils.LineBreakIndexes(wrappedPara)
 
 	return Model{
-		Text:   joinedWords,
+		Text:   []rune(joinedWords),
 		State:  StateMenu,
 		Lines:  GetLinesFromWrappedText(wrappedPara),
 		Engine: typing.NewEngine(joinedWords, lineBreaks),
@@ -110,7 +112,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		frameStyles = frameStyles.Padding(2, CalcHorizontalPadding())
 		frameX, _ := frameStyles.GetFrameSize()
-		wrappedPara := wordwrap.String(m.Text, msg.Width-frameX)
+		wrappedPara := wordwrap.String(string(m.Text), msg.Width-frameX)
 		m.Lines = GetLinesFromWrappedText(wrappedPara)
 		newLineBreaks := make([]int, len(m.Lines)-1)
 		for i, lines := range m.Lines {
@@ -124,11 +126,23 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.KeyMsg:
 		switch msg.String() {
-		case "ctrl+c":
+		case "ctrl+c", "esc":
 			return m, tea.Quit
 		case "enter":
 			if m.State == StateResults {
-				m = NewModel(utils.GenerateWords(m.WordsCount))
+				wl := wordlist.New()
+				prevMode := m.Mode
+				prevDuration := m.Duration
+				prevWordsCount := m.WordsCount
+				prevWidth := m.Width
+				prevHeight := m.Height
+				m = NewModel(wl)
+				m.Mode = prevMode
+				m.Duration = prevDuration
+				m.RemainingDuration = int(prevDuration.Seconds())
+				m.WordsCount = prevWordsCount
+				m.Width = prevWidth
+				m.Height = prevHeight
 			}
 		case "backspace":
 			if m.State == StateTyping {
@@ -210,7 +224,7 @@ func (m Model) View() string {
 
 	if m.Done && m.State == StateResults {
 		b.WriteString(centerStyles.Foreground(lipgloss.Color("4")).Render("WPM: "+strconv.Itoa(int(m.Stats.WPM()))+", Accuracy: "+strconv.Itoa(int(m.Stats.Accuracy()))+"%") + "\n\n")
-		b.WriteString(centerStyles.Foreground(lipgloss.Color("8")).Render("Press Enter to restart"))
+		b.WriteString(centerStyles.Foreground(lipgloss.Color("8")).Render("Press Enter to restart • Esc to quit"))
 	}
 
 	return frameStyles.Render(b.String())
