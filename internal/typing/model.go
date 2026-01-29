@@ -4,9 +4,13 @@ import "time"
 
 type Model struct {
 	// test config
-	Mode     Mode
-	Target   []rune
-	Duration time.Duration
+	Mode       Mode
+	Target     []rune
+	Duration   time.Duration
+	WordsCount int
+
+	RemainingDuration int
+	CurrentWord       int
 
 	// runtime state
 	StartedAt time.Time
@@ -19,6 +23,19 @@ type Model struct {
 	// UI
 	FocusMode bool
 	Err       error
+}
+
+func (m *Model) AddKeystroke(r rune, expected rune, backspace bool) {
+	ks := Keystroke{
+		Rune:      r,
+		Expected:  expected,
+		Time:      time.Now(),
+		Backspace: backspace,
+	}
+	if !backspace {
+		ks.Correct = r == expected
+	}
+	m.Keystrokes = append(m.Keystrokes, ks)
 }
 
 type Keystroke struct {

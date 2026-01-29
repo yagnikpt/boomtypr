@@ -14,11 +14,10 @@ func NewStats() *Stats {
 	return &Stats{}
 }
 
-func (s *Stats) Calculate(keys []Keystroke, endTime time.Time) {
+func (s *Stats) Calculate(keys []Keystroke) {
 	correct := 0
 	incorrect := 0
 
-	s.EndTime = endTime
 	for _, k := range keys {
 		if k.Backspace {
 			continue
@@ -44,12 +43,12 @@ func (s *Stats) Stop() {
 	s.EndTime = time.Now()
 }
 
-func (s *Stats) WPM() float64 {
+func (s Stats) WPM() float64 {
 	duration := s.EndTime.Sub(s.StartTime).Minutes()
 	return float64(s.CorrectChars) / 5.0 / duration
 }
 
-func (s *Stats) Accuracy() float64 {
+func (s Stats) Accuracy() float64 {
 	return float64(s.CorrectChars) / float64(s.TotalChars) * 100
 }
 

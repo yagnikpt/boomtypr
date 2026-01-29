@@ -53,19 +53,18 @@ func CalcHorizontalPadding() int {
 	return (width - 80) / 2
 }
 
-func CalcPaddingToCenterVertically(height, lines, padding int) string {
+func CalcPaddingToCenterVertically(height, lines, offset int) string {
 	var b strings.Builder
 	halfHeight := height / 2
-	halfPadding := padding / 2
 	if height%2 == 0 {
 		l := (lines + 1) / 2
-		padLength := halfHeight - l - halfPadding
+		padLength := halfHeight - l - offset
 		for range padLength {
 			b.WriteString("\n")
 		}
 	} else {
 		l := lines / 2
-		padLength := halfHeight - l - halfPadding
+		padLength := halfHeight - l - offset
 		for range padLength {
 			b.WriteString("\n")
 		}

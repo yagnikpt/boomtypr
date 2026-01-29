@@ -1,7 +1,9 @@
 package ui
 
 import (
+	"strconv"
 	"strings"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -13,9 +15,11 @@ import (
 
 var (
 	frameStyles        = lipgloss.NewStyle().Padding(2, CalcHorizontalPadding())
-	pendingCharStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("#4C4C4C"))
-	incorrectCharStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("9")).Underline(true)
+	pendingCharStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("8")) // grey
+	correctCharStyle   = lipgloss.NewStyle().Bold(true)
+	incorrectCharStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("9")).Underline(true) // red
 	cursorStyle        = lipgloss.NewStyle().Background(lipgloss.Color("7")).Foreground(lipgloss.Color("0"))
+	helperStats        = lipgloss.NewStyle().Foreground(lipgloss.Color("4")) // blue
 )
 
 type UIState int
@@ -40,6 +44,8 @@ type Model struct {
 	Lines  []Line
 	Width  int
 	Height int
+	Stats  *typing.Stats
+	typing.Model
 }
 
 func NewModel(words []string) Model {
@@ -54,6 +60,15 @@ func NewModel(words []string) Model {
 		State:  StateMenu,
 		Lines:  GetLinesFromWrappedText(wrappedPara),
 		Engine: typing.NewEngine(joinedWords, lineBreaks),
+		Model: typing.Model{
+			Mode:              typing.ModeTime,
+			Duration:          time.Second * 30,
+			RemainingDuration: 30,
+			Target:            []rune(joinedWords),
+			WordsCount:        50,
+			CurrentWord:       1,
+		},
+		Stats: typing.NewStats(),
 	}
 }
 
@@ -62,7 +77,36 @@ func (m Model) Init() tea.Cmd {
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	// var cmd tea.Cmd
+	var cmds []tea.Cmd
+
 	switch msg := msg.(type) {
+	case startMsg:
+		m.Stats.Start()
+		m.State = StateTyping
+		if m.Mode == typing.ModeTime {
+			cmds = append(cmds, endTickerCmd(m.Duration), tickerCmd())
+		}
+
+	case tickerMsg:
+		if m.State == StateTyping && m.Mode == typing.ModeTime {
+			m.RemainingDuration--
+			if !m.Done {
+				cmds = append(cmds, tickerCmd())
+			}
+		}
+
+	case endTickerMsg:
+		if m.State == StateTyping {
+			cmds = append(cmds, finishCmd())
+		}
+
+	case finishMsg:
+		m.Done = true
+		m.Stats.Stop()
+		m.Stats.Calculate(m.Keystrokes)
+		m.State = StateResults
+
 	case tea.WindowSizeMsg:
 		frameStyles = frameStyles.Padding(2, CalcHorizontalPadding())
 		frameX, _ := frameStyles.GetFrameSize()
@@ -82,47 +126,91 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "ctrl+c":
 			return m, tea.Quit
+		case "enter":
+			if m.State == StateResults {
+				m = NewModel(utils.GenerateWords(m.WordsCount))
+			}
 		case "backspace":
-			m.Engine.Backspace()
+			if m.State == StateTyping {
+				m.Engine.Backspace()
+				m.AddKeystroke(32, m.Target[m.Engine.CurrentChar], true)
+			}
 		default:
-			if len(msg.Runes) > 0 {
+			if len(msg.Runes) > 0 && !m.Done {
+				if m.State == StateMenu {
+					cmds = append(cmds, startCmd())
+				}
+				m.AddKeystroke(msg.Runes[0], m.Target[m.Engine.CurrentChar], false)
 				m.Engine.TypeChar(msg.Runes[0])
 			}
 		}
-
-		return m, nil
 	}
 
-	return m, nil
+	return m, tea.Batch(cmds...)
 }
 
 func (m Model) View() string {
 	var b strings.Builder
 
-	padding := CalcPaddingToCenterVertically(m.Height, LinesWindowSize, 2)
+	centerOffset := 4 // padding
+	if m.State == StateResults {
+		centerOffset -= 2
+	}
+
+	padding := CalcPaddingToCenterVertically(m.Height, LinesWindowSize, centerOffset)
 	b.WriteString(padding)
-	for i := m.Engine.CurrentLine; i < m.Engine.CurrentLine+LinesWindowSize && i < len(m.Lines); i++ {
-		line := m.Lines[i]
-		for j, char := range line.Text {
-			charIndex := line.Start + j
 
-			rendered := string(char)
-			switch m.Engine.Track[charIndex] {
-			case typing.CharPending:
-				rendered = pendingCharStyle.Render(rendered)
-			case typing.CharIncorrect:
-				rendered = incorrectCharStyle.Render(rendered)
-			}
-
-			if charIndex == m.Engine.CurrentChar {
-				rendered = cursorStyle.Render(string(char))
-			}
-			b.WriteString(rendered)
+	switch m.State {
+	case StateMenu:
+		switch m.Mode {
+		case typing.ModeTime:
+			b.WriteString(helperStats.Render(strconv.Itoa(int(m.Duration.Seconds()))+" secs") + "\n\n")
+		case typing.ModeWords:
+			b.WriteString(helperStats.Render(strconv.Itoa(m.WordsCount)+" words") + "\n\n")
 		}
-		if m.Engine.CurrentChar == line.Start+len(line.Text) {
-			b.WriteString(cursorStyle.Render(" "))
+	case StateTyping:
+		switch m.Mode {
+		case typing.ModeTime:
+			b.WriteString(helperStats.Render(strconv.Itoa(m.RemainingDuration)) + "\n\n")
+		case typing.ModeWords:
+			b.WriteString(helperStats.Render(strconv.Itoa(m.CurrentWord)+" / "+strconv.Itoa(m.WordsCount)) + "\n\n")
+		}
+	}
+
+	if m.State == StateMenu || m.State == StateTyping {
+		for i := m.Engine.CurrentLine; i < m.Engine.CurrentLine+LinesWindowSize && i < len(m.Lines); i++ {
+			line := m.Lines[i]
+			for j, char := range line.Text {
+				charIndex := line.Start + j
+
+				rendered := string(char)
+				switch m.Engine.Track[charIndex] {
+				case typing.CharPending:
+					rendered = pendingCharStyle.Render(rendered)
+				case typing.CharIncorrect:
+					rendered = incorrectCharStyle.Render(rendered)
+				case typing.CharCorrect:
+					rendered = correctCharStyle.Render(rendered)
+				}
+
+				if charIndex == m.Engine.CurrentChar {
+					rendered = cursorStyle.Render(string(char))
+				}
+				b.WriteString(rendered)
+			}
+			if m.Engine.CurrentChar == line.Start+len(line.Text) {
+				b.WriteString(cursorStyle.Render(" "))
+			}
+			b.WriteString("\n")
 		}
 		b.WriteString("\n")
+	}
+
+	centerStyles := lipgloss.NewStyle().Width(m.Width - frameStyles.GetHorizontalFrameSize()).AlignHorizontal(lipgloss.Center)
+
+	if m.Done && m.State == StateResults {
+		b.WriteString(centerStyles.Foreground(lipgloss.Color("4")).Render("WPM: "+strconv.Itoa(int(m.Stats.WPM()))+", Accuracy: "+strconv.Itoa(int(m.Stats.Accuracy()))+"%") + "\n\n")
+		b.WriteString(centerStyles.Foreground(lipgloss.Color("8")).Render("Press Enter to restart"))
 	}
 
 	return frameStyles.Render(b.String())

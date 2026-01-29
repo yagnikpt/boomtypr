@@ -6,19 +6,31 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-type blinkMsg struct{}
-type resumeBlinkMsg struct {
-	id int
+type startMsg struct{}
+type finishMsg struct{}
+type endTickerMsg struct{}
+type tickerMsg time.Time
+
+func startCmd() tea.Cmd {
+	return func() tea.Msg {
+		return startMsg{}
+	}
 }
 
-func blinkCmd() tea.Cmd {
-	return tea.Tick(500*time.Millisecond, func(time.Time) tea.Msg {
-		return blinkMsg{}
+func finishCmd() tea.Cmd {
+	return func() tea.Msg {
+		return finishMsg{}
+	}
+}
+
+func endTickerCmd(duration time.Duration) tea.Cmd {
+	return tea.Tick(duration, func(t time.Time) tea.Msg {
+		return endTickerMsg{}
 	})
 }
 
-func resumeBlinkCmd(id int) tea.Cmd {
-	return tea.Tick(500*time.Millisecond, func(time.Time) tea.Msg {
-		return resumeBlinkMsg{id: id}
+func tickerCmd() tea.Cmd {
+	return tea.Tick(time.Second, func(t time.Time) tea.Msg {
+		return tickerMsg(t)
 	})
 }

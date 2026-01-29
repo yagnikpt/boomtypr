@@ -13,7 +13,7 @@ const (
 )
 
 type Engine struct {
-	Text        string
+	Text        []rune
 	CurrentChar int
 	CurrentLine int
 	LineBreaks  []int
@@ -23,9 +23,11 @@ type Engine struct {
 
 func NewEngine(text string, lineBreaks []int) *Engine {
 	track := make([]CharState, len(text))
+	lbs := make([]int, len(lineBreaks))
+	copy(lbs, lineBreaks)
 	return &Engine{
-		Text:       text,
-		LineBreaks: lineBreaks,
+		Text:       []rune(text),
+		LineBreaks: lbs,
 		Track:      track,
 	}
 }
@@ -38,11 +40,13 @@ func (e *Engine) TypeChar(char rune) {
 	if e.Finished {
 		return
 	}
-	if e.LineBreaks[e.CurrentLine] == e.CurrentChar && string(char) != " " {
-		return
-	}
-	if e.CurrentChar < len(e.Text) && e.CurrentChar == e.LineBreaks[e.CurrentLine] {
-		e.CurrentLine++
+	if e.CurrentLine < len(e.LineBreaks) {
+		if e.LineBreaks[e.CurrentLine] == e.CurrentChar && string(char) != " " {
+			return
+		}
+		if e.CurrentChar < len(e.Text) && e.CurrentChar == e.LineBreaks[e.CurrentLine] {
+			e.CurrentLine++
+		}
 	}
 	if string(char) == string(e.Text[e.CurrentChar]) {
 		e.Track[e.CurrentChar] = CharCorrect
@@ -68,14 +72,18 @@ func (e *Engine) Backspace() {
 
 func (e *Engine) UpdateLines(newLines []int) {
 	e.LineBreaks = newLines
-	newCurrentLineIndex := sort.Search(len(newLines), func(i int) bool {
+
+	e.CurrentLine = sort.Search(len(newLines), func(i int) bool {
 		return newLines[i] > e.CurrentChar
 	})
-
-	detla := newCurrentLineIndex - e.CurrentLine
-	e.CurrentLine += detla
 }
 
 func (e *Engine) Reset() {
-	// TODO: implement
+	e.CurrentChar = 0
+	e.CurrentLine = 0
+	e.Finished = false
+
+	for i := range e.Track {
+		e.Track[i] = CharPending
+	}
 }
