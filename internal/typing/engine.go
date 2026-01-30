@@ -21,12 +21,12 @@ type Engine struct {
 	Finished    bool
 }
 
-func NewEngine(text string, lineBreaks []int) *Engine {
+func NewEngine(text []rune, lineBreaks []int) *Engine {
 	track := make([]CharState, len(text))
 	lbs := make([]int, len(lineBreaks))
 	copy(lbs, lineBreaks)
 	return &Engine{
-		Text:       []rune(text),
+		Text:       text,
 		LineBreaks: lbs,
 		Track:      track,
 	}
@@ -56,12 +56,15 @@ func (e *Engine) TypeChar(char rune) {
 }
 
 func (e *Engine) Backspace() {
-	if e.Finished || e.CurrentChar == 0 {
+	if e.CurrentChar == 0 {
 		return
 	}
+	e.Finished = false
+	// if e.CurrentChar < len(e.Text) {
 	if e.CurrentLine > 0 && e.CurrentChar == e.LineBreaks[e.CurrentLine-1]+1 {
 		e.CurrentLine--
 	}
+	// }
 	e.CurrentChar--
 	e.Track[e.CurrentChar] = CharPending
 }

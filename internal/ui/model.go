@@ -10,7 +10,6 @@ import (
 
 	"github.com/muesli/reflow/wordwrap"
 	"github.com/yagnikpt/boomtypr/internal/typing"
-	"github.com/yagnikpt/boomtypr/internal/utils"
 	"github.com/yagnikpt/boomtypr/internal/wordlist"
 )
 
@@ -49,25 +48,20 @@ type Model struct {
 	typing.Model
 }
 
-func NewModel(wordlist *wordlist.WordList) Model {
-	words := wordlist.GetRandomWords(50)
-	joinedWords := strings.Join(words, " ")
-	termWidth, _, _ := GetTermDimensions()
-	frameX := frameStyles.GetHorizontalFrameSize()
-	wrappedPara := wordwrap.String(joinedWords, termWidth-frameX)
-	lineBreaks := utils.LineBreakIndexes(wrappedPara)
+func NewModel(wordlist *wordlist.WordList, mode typing.Mode, duration time.Duration, wordCount int) Model {
+	text, lines, lineBreaks := AssignWords(wordlist, mode, duration, wordCount)
 
 	return Model{
-		Text:   []rune(joinedWords),
+		Text:   text,
 		State:  StateMenu,
-		Lines:  GetLinesFromWrappedText(wrappedPara),
-		Engine: typing.NewEngine(joinedWords, lineBreaks),
+		Lines:  lines,
+		Engine: typing.NewEngine(text, lineBreaks),
 		Model: typing.Model{
-			Mode:              typing.ModeTime,
-			Duration:          time.Second * 30,
-			RemainingDuration: 30,
-			Target:            []rune(joinedWords),
-			WordsCount:        50,
+			Mode:              mode,
+			Duration:          duration,
+			RemainingDuration: int(duration.Seconds()),
+			Target:            text,
+			WordCount:         wordCount,
 			CurrentWord:       1,
 		},
 		Stats: typing.NewStats(),
@@ -128,34 +122,98 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "ctrl+c", "esc":
 			return m, tea.Quit
+		case "tab":
+			if m.State == StateMenu {
+				m.NextMode(m.Mode)
+				wl := wordlist.New()
+				text, lines, lineBreaks := AssignWords(wl, m.Mode, m.Duration, m.WordCount)
+				m.Text = text
+				m.Target = text
+				m.Lines = lines
+				m.Engine.UpdateLines(lineBreaks)
+				m.Engine.Text = text
+				m.Engine.Track = make([]typing.CharState, len(text))
+			}
+		case "up":
+			if m.State == StateMenu {
+				switch m.Mode {
+				case typing.ModeTime:
+					m.NextDuration()
+				case typing.ModeWords:
+					m.NextWordCount()
+				}
+				wl := wordlist.New()
+				text, lines, lineBreaks := AssignWords(wl, m.Mode, m.Duration, m.WordCount)
+				m.Text = text
+				m.Target = text
+				m.Lines = lines
+				m.Engine.UpdateLines(lineBreaks)
+				m.Engine.Text = text
+				m.Engine.Track = make([]typing.CharState, len(text))
+			}
+		case "down":
+			if m.State == StateMenu {
+				switch m.Mode {
+				case typing.ModeTime:
+					m.PrevDuration()
+				case typing.ModeWords:
+					m.PrevWordCount()
+				}
+				wl := wordlist.New()
+				text, lines, lineBreaks := AssignWords(wl, m.Mode, m.Duration, m.WordCount)
+				m.Text = text
+				m.Target = text
+				m.Lines = lines
+				m.Engine.UpdateLines(lineBreaks)
+				m.Engine.Text = text
+				m.Engine.Track = make([]typing.CharState, len(text))
+			}
 		case "enter":
 			if m.State == StateResults {
 				wl := wordlist.New()
-				prevMode := m.Mode
-				prevDuration := m.Duration
-				prevWordsCount := m.WordsCount
 				prevWidth := m.Width
 				prevHeight := m.Height
-				m = NewModel(wl)
-				m.Mode = prevMode
-				m.Duration = prevDuration
-				m.RemainingDuration = int(prevDuration.Seconds())
-				m.WordsCount = prevWordsCount
+				m = NewModel(wl, m.Mode, m.Duration, m.WordCount)
 				m.Width = prevWidth
 				m.Height = prevHeight
 			}
 		case "backspace":
-			if m.State == StateTyping {
+			if m.State == StateTyping && m.Engine.CurrentChar > 0 {
+				prevChar := m.Engine.Text[m.Engine.CurrentChar-1]
+
+				if prevChar == ' ' && m.CurrentWord > 1 {
+					m.CurrentWord--
+				}
+
 				m.Engine.Backspace()
-				m.AddKeystroke(32, m.Target[m.Engine.CurrentChar], true)
+
+				if m.Engine.CurrentChar < len(m.Engine.Text) {
+					m.AddKeystroke(' ', m.Engine.Text[m.Engine.CurrentChar], true)
+				}
+			}
+		case " ":
+			if m.State == StateTyping && !m.Done && !m.Engine.Finished {
+				if m.Engine.CurrentChar > 0 {
+					prevChar := m.Engine.Text[m.Engine.CurrentChar-1]
+
+					if prevChar != ' ' && m.Engine.Text[m.Engine.CurrentChar] == 32 {
+						m.CurrentWord++
+					}
+				}
+
+				m.AddKeystroke(' ', m.Engine.Text[m.Engine.CurrentChar], false)
+				m.Engine.TypeChar(' ')
 			}
 		default:
 			if len(msg.Runes) > 0 && !m.Done {
 				if m.State == StateMenu {
 					cmds = append(cmds, startCmd())
 				}
-				m.AddKeystroke(msg.Runes[0], m.Target[m.Engine.CurrentChar], false)
+				m.AddKeystroke(msg.Runes[0], m.Engine.Text[m.Engine.CurrentChar], false)
 				m.Engine.TypeChar(msg.Runes[0])
+				if m.Engine.Finished && m.Mode != typing.ModeTime {
+					cmds = append(cmds, finishCmd())
+				}
 			}
 		}
 	}
@@ -170,6 +228,9 @@ func (m Model) View() string {
 	if m.State == StateResults {
 		centerOffset -= 2
 	}
+	if m.State == StateTyping && m.Mode == typing.ModeZen {
+		centerOffset -= 2
+	}
 
 	padding := CalcPaddingToCenterVertically(m.Height, LinesWindowSize, centerOffset)
 	b.WriteString(padding)
@@ -180,14 +241,16 @@ func (m Model) View() string {
 		case typing.ModeTime:
 			b.WriteString(helperStats.Render(strconv.Itoa(int(m.Duration.Seconds()))+" secs") + "\n\n")
 		case typing.ModeWords:
-			b.WriteString(helperStats.Render(strconv.Itoa(m.WordsCount)+" words") + "\n\n")
+			b.WriteString(helperStats.Render(strconv.Itoa(m.WordCount)+" words") + "\n\n")
+		case typing.ModeZen:
+			b.WriteString(helperStats.Render("zen") + "\n\n")
 		}
 	case StateTyping:
 		switch m.Mode {
 		case typing.ModeTime:
 			b.WriteString(helperStats.Render(strconv.Itoa(m.RemainingDuration)) + "\n\n")
 		case typing.ModeWords:
-			b.WriteString(helperStats.Render(strconv.Itoa(m.CurrentWord)+" / "+strconv.Itoa(m.WordsCount)) + "\n\n")
+			b.WriteString(helperStats.Render(strconv.Itoa(m.CurrentWord)+" / "+strconv.Itoa(m.WordCount)) + "\n\n")
 		}
 	}
 

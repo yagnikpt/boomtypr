@@ -31,11 +31,11 @@ boomtypr
 
 ## Roadmap
 
-- [ ] WPM and accuracy stats display
-- [ ] Results screen after test completion
-- [ ] Configurable word count and test duration
+- [x] WPM and accuracy stats display
+- [x] Results screen after test completion
+- [x] Configurable word count and test duration
 - [ ] Multiple word lists
-- [ ] Test restart functionality
+- [x] Test restart functionality
 
 ## License
 

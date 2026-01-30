@@ -24,7 +24,7 @@ func New() *WordList {
 	return &wl
 }
 
-func (wl *WordList) GetRandomWords(n int) []string {
+func (wl WordList) GetRandomWords(n int) []string {
 	if n <= 0 || len(wl.Words) == 0 {
 		return nil
 	}
@@ -34,4 +34,13 @@ func (wl *WordList) GetRandomWords(n int) []string {
 		result[i] = wl.Words[rand.Intn(len(wl.Words))]
 	}
 	return result
+}
+
+func (wl WordList) GetAllWords() []string {
+	words := make([]string, len(wl.Words))
+	copy(words, wl.Words)
+	rand.Shuffle(len(words), func(i, j int) {
+		words[i], words[j] = words[j], words[i]
+	})
+	return words
 }

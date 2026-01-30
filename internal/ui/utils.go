@@ -4,10 +4,34 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
+	"github.com/muesli/reflow/wordwrap"
+	"github.com/yagnikpt/boomtypr/internal/typing"
 	"github.com/yagnikpt/boomtypr/internal/utils"
+	"github.com/yagnikpt/boomtypr/internal/wordlist"
 	"golang.org/x/term"
 )
+
+func AssignWords(wordlist *wordlist.WordList, mode typing.Mode, duration time.Duration, wordCount int) (text []rune, lines []Line, lineBreaks []int) {
+	timeModeWords := wordCount
+	var words []string
+	if mode == typing.ModeTime {
+		timeModeWords = int(duration.Seconds()) * 3
+	}
+	if mode == typing.ModeZen {
+		words = wordlist.GetAllWords()
+	} else {
+		words = wordlist.GetRandomWords(timeModeWords)
+	}
+	joinedWords := strings.Join(words, " ")
+	termWidth, _, _ := GetTermDimensions()
+	frameX := frameStyles.GetHorizontalFrameSize()
+	wrappedPara := wordwrap.String(joinedWords, termWidth-frameX)
+	lineBreaks = utils.LineBreakIndexes(wrappedPara)
+
+	return []rune(joinedWords), GetLinesFromWrappedText(wrappedPara), lineBreaks
+}
 
 func GetLinesFromWrappedText(text string) []Line {
 	lineBreaks := utils.LineBreakIndexes(text)
