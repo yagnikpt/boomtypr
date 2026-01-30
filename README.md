@@ -5,8 +5,9 @@ A minimal terminal-based typing test built with Go and [Bubble Tea](https://gith
 ## Features
 
 - Clean, distraction-free TUI
-- Real-time character tracking with visual feedback
-- Incorrect characters highlighted with underline
+- Multiple test modes: Time, Words, and Zen
+- Configurable test duration and word count
+- Results screen with WPM and accuracy display
 - Responsive text wrapping
 
 ## Install
@@ -36,6 +37,7 @@ boomtypr
 - [x] Configurable word count and test duration
 - [ ] Multiple word lists
 - [x] Test restart functionality
+- [ ] word erase (ctrl+w / ctlr+backspace)
 
 ## License
 
