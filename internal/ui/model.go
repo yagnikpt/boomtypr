@@ -177,6 +177,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.Width = prevWidth
 				m.Height = prevHeight
 			}
+			if m.State == StateTyping && m.Mode == typing.ModeZen {
+				cmds = append(cmds, finishCmd())
+			}
 		case "backspace":
 			if m.State == StateTyping && m.Engine.CurrentChar > 0 {
 				prevChar := m.Engine.Text[m.Engine.CurrentChar-1]
