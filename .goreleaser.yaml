@@ -31,7 +31,13 @@ homebrew_casks:
     homepage: "https://github.com/yagnikpt/boomtypr"
     repository:
       owner: yagnikpt
-      name: boomtypr
+      name: homebrew-tap
+    hooks:
+      post:
+        install: |
+          if OS.mac?
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/boomtypr"]
+          end
 
 changelog:
   sort: asc
