@@ -39,6 +39,32 @@ homebrew_casks:
             system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/boomtypr"]
           end
 
+winget:
+  - name: boomtypr
+    publisher: yagnikbuilds
+    homepage: https://github.com/yagnikpt/boomtypr
+    short_description: A sleek typing test experience in terminal.
+    license: MIT
+    repository:
+      owner: yagnikpt
+      name: winget-pkgs
+      branch: "boomtypr-{{.Version}}"
+      pull_request:
+        enabled: true
+        base:
+          owner: microsoft
+          name: winget-pkgs
+          branch: master
+
+nfpms:
+  - maintainer: Yagnik Patel <yagnik.pt@gmail.com>
+    description: A sleek typing test experience in terminal.
+    homepage: https://github.com/yagnikpt/boomtypr
+    license: MIT
+    formats:
+      - deb
+      - rpm
+
 changelog:
   sort: asc
   filters:
