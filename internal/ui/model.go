@@ -180,7 +180,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.State == StateTyping && m.Mode == typing.ModeZen {
 				cmds = append(cmds, finishCmd())
 			}
-		case "backspace":
+		case "backspace", "ctrl+h":
 			if m.State == StateTyping && m.Engine.CurrentChar > 0 {
 				prevChar := m.Engine.Text[m.Engine.CurrentChar-1]
 
@@ -192,6 +192,31 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 				if m.Engine.CurrentChar < len(m.Engine.Text) {
 					m.AddKeystroke(' ', m.Engine.Text[m.Engine.CurrentChar], true)
+				}
+			}
+		case "ctrl+backspace", "ctrl+w":
+			if m.State == StateTyping && m.Engine.CurrentChar > 0 {
+				originalPos := m.Engine.CurrentChar
+				deletedWordChars := 0
+
+				for m.Engine.CurrentChar > 0 && m.Engine.Text[m.Engine.CurrentChar-1] == ' ' {
+					m.Engine.Backspace()
+					deletedWordChars++
+				}
+
+				for m.Engine.CurrentChar > 0 && m.Engine.Text[m.Engine.CurrentChar-1] != ' ' {
+					m.Engine.Backspace()
+					deletedWordChars++
+				}
+
+				if originalPos > 0 && m.Engine.Text[originalPos-1] != ' ' && m.CurrentWord > 1 {
+					m.CurrentWord--
+				}
+
+				if m.Engine.CurrentChar < len(m.Engine.Text) {
+					for i := 0; i < deletedWordChars; i++ {
+						m.AddKeystroke(' ', m.Engine.Text[m.Engine.CurrentChar], true)
+					}
 				}
 			}
 		case " ":
