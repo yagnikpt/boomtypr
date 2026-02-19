@@ -13,10 +13,16 @@ A minimal terminal-based typing test built with Go and [Bubble Tea](https://gith
 
 ## Install
 
-### Homebrew
+### Homebrew (MacOS, Linux)
 
 ```bash
 brew install yagnikpt/tap/boomtypr
+```
+
+### Winget (Windows)
+
+```bash
+winget install yagnikbuilds.boomtypr --source winget
 ```
 
 ### Go
@@ -46,7 +52,7 @@ boomtypr
 - [x] Configurable word count and test duration
 - [ ] Multiple word lists
 - [x] Test restart functionality
-- [ ] Word erase (ctrl+w / ctlr+backspace)
+- [x] Word erase (ctrl+w / ctlr+backspace)
 - [ ] Realtime stats display / better stats
 
 ## Inspiration
