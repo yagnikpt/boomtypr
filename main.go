@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/yagnikpt/boomtypr/internal/typing"
 	"github.com/yagnikpt/boomtypr/internal/ui"
 	"github.com/yagnikpt/boomtypr/internal/wordlist"
@@ -50,7 +50,7 @@ func main() {
 	}
 
 	wl := wordlist.New()
-	p := tea.NewProgram(ui.NewModel(wl, typing.ModeTime, 30*time.Second, 50), tea.WithAltScreen())
+	p := tea.NewProgram(ui.NewModel(wl, typing.ModeTime, 30*time.Second, 50))
 
 	if _, err := p.Run(); err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v", err)

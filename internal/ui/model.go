@@ -5,8 +5,8 @@ import (
 	"strings"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 
 	"github.com/muesli/reflow/wordwrap"
 	"github.com/yagnikpt/boomtypr/internal/typing"
@@ -118,7 +118,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.Width = msg.Width
 		m.Height = msg.Height
 
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		switch msg.String() {
 		case "ctrl+c", "esc":
 			return m, tea.Quit
@@ -219,7 +219,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					}
 				}
 			}
-		case " ":
+		case "space":
 			if m.State == StateTyping && !m.Done && !m.Engine.Finished {
 				if m.Engine.CurrentChar > 0 {
 					prevChar := m.Engine.Text[m.Engine.CurrentChar-1]
@@ -233,12 +233,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.Engine.TypeChar(' ')
 			}
 		default:
-			if len(msg.Runes) > 0 && !m.Done {
+			if len(msg.Text) > 0 && !m.Done {
 				if m.State == StateMenu {
 					cmds = append(cmds, startCmd())
 				}
-				m.AddKeystroke(msg.Runes[0], m.Engine.Text[m.Engine.CurrentChar], false)
-				m.Engine.TypeChar(msg.Runes[0])
+				m.AddKeystroke([]rune(msg.Text)[0], m.Engine.Text[m.Engine.CurrentChar], false)
+				m.Engine.TypeChar([]rune(msg.Text)[0])
 				if m.Engine.Finished && m.Mode != typing.ModeTime {
 					cmds = append(cmds, finishCmd())
 				}
@@ -249,7 +249,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
-func (m Model) View() string {
+func (m Model) View() tea.View {
+	var v tea.View
 	var b strings.Builder
 
 	centerOffset := 4 // padding
@@ -318,5 +319,9 @@ func (m Model) View() string {
 		b.WriteString(centerStyles.Foreground(lipgloss.Color("8")).Render("Press Enter to restart • Esc to quit"))
 	}
 
-	return frameStyles.Render(b.String())
+	v.AltScreen = true
+	v.WindowTitle = "boomtypr"
+	v.SetContent(frameStyles.Render(b.String()))
+
+	return v
 }
