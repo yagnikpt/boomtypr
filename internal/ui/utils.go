@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/muesli/reflow/wordwrap"
+	"charm.land/lipgloss/v2"
 	"github.com/yagnikpt/boomtypr/internal/typing"
 	"github.com/yagnikpt/boomtypr/internal/utils"
 	"github.com/yagnikpt/boomtypr/internal/wordlist"
@@ -27,7 +27,8 @@ func AssignWords(wordlist *wordlist.WordList, mode typing.Mode, duration time.Du
 	joinedWords := strings.Join(words, " ")
 	termWidth, _, _ := GetTermDimensions()
 	frameX := frameStyles.GetHorizontalFrameSize()
-	wrappedPara := wordwrap.String(joinedWords, termWidth-frameX)
+	wrappedPara := lipgloss.Wrap(joinedWords, termWidth-frameX, " ")
+	// wrappedPara := wordwrap.String(joinedWords, termWidth-frameX)
 	lineBreaks = utils.LineBreakIndexes(wrappedPara)
 
 	return []rune(joinedWords), GetLinesFromWrappedText(wrappedPara), lineBreaks

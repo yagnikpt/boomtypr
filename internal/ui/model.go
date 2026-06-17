@@ -8,7 +8,6 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
-	"github.com/muesli/reflow/wordwrap"
 	"github.com/yagnikpt/boomtypr/internal/typing"
 	"github.com/yagnikpt/boomtypr/internal/wordlist"
 )
@@ -106,7 +105,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		frameStyles = frameStyles.Padding(2, CalcHorizontalPadding())
 		frameX, _ := frameStyles.GetFrameSize()
-		wrappedPara := wordwrap.String(string(m.Text), msg.Width-frameX)
+		wrappedPara := lipgloss.Wrap(string(m.Text), msg.Width-frameX, " ")
+		// wrappedPara := wordwrap.String(string(m.Text), msg.Width-frameX)
 		m.Lines = GetLinesFromWrappedText(wrappedPara)
 		newLineBreaks := make([]int, len(m.Lines)-1)
 		for i, lines := range m.Lines {
