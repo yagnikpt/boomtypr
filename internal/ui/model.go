@@ -9,6 +9,7 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"github.com/yagnikpt/boomtypr/internal/typing"
+	"github.com/yagnikpt/boomtypr/internal/utils"
 	"github.com/yagnikpt/boomtypr/internal/wordlist"
 )
 
@@ -182,13 +183,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case "backspace", "ctrl+h":
 			if m.State == StateTyping && m.Engine.CurrentChar > 0 {
-				prevChar := m.Engine.Text[m.Engine.CurrentChar-1]
-
-				if prevChar == ' ' && m.CurrentWord > 1 {
-					m.CurrentWord--
-				}
-
 				m.Engine.Backspace()
+				m.CurrentWord = utils.CalcCurrentWord(string(m.Engine.Text), m.Engine.CurrentChar)
 
 				if m.Engine.CurrentChar < len(m.Engine.Text) {
 					m.AddKeystroke(' ', m.Engine.Text[m.Engine.CurrentChar], true)
@@ -196,7 +192,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case "ctrl+backspace", "ctrl+w":
 			if m.State == StateTyping && m.Engine.CurrentChar > 0 {
-				originalPos := m.Engine.CurrentChar
 				deletedWordChars := 0
 
 				for m.Engine.CurrentChar > 0 && m.Engine.Text[m.Engine.CurrentChar-1] == ' ' {
@@ -209,9 +204,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					deletedWordChars++
 				}
 
-				if originalPos > 0 && m.Engine.Text[originalPos-1] != ' ' && m.CurrentWord > 1 {
-					m.CurrentWord--
-				}
+				m.CurrentWord = utils.CalcCurrentWord(string(m.Engine.Text), m.Engine.CurrentChar)
 
 				if m.Engine.CurrentChar < len(m.Engine.Text) {
 					for i := 0; i < deletedWordChars; i++ {
@@ -221,16 +214,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case "space":
 			if m.State == StateTyping && !m.Done && !m.Engine.Finished {
-				if m.Engine.CurrentChar > 0 {
-					prevChar := m.Engine.Text[m.Engine.CurrentChar-1]
-
-					if prevChar != ' ' && m.Engine.Text[m.Engine.CurrentChar] == 32 {
-						m.CurrentWord++
-					}
-				}
-
 				m.AddKeystroke(' ', m.Engine.Text[m.Engine.CurrentChar], false)
 				m.Engine.TypeChar(' ')
+				m.CurrentWord = utils.CalcCurrentWord(string(m.Engine.Text), m.Engine.CurrentChar)
 			}
 		default:
 			if len(msg.Text) > 0 && !m.Done {
@@ -312,9 +298,8 @@ func (m Model) View() tea.View {
 		b.WriteString("\n")
 	}
 
-	centerStyles := lipgloss.NewStyle().Width(m.Width - frameStyles.GetHorizontalFrameSize()).AlignHorizontal(lipgloss.Center)
-
 	if m.Done && m.State == StateResults {
+		centerStyles := lipgloss.NewStyle().Width(m.Width - frameStyles.GetHorizontalFrameSize()).AlignHorizontal(lipgloss.Center)
 		b.WriteString(centerStyles.Foreground(lipgloss.Color("4")).Render("WPM: "+strconv.Itoa(int(m.Stats.WPM()))+", Accuracy: "+strconv.Itoa(int(m.Stats.Accuracy()))+"%") + "\n\n")
 		b.WriteString(centerStyles.Foreground(lipgloss.Color("8")).Render("Press Enter to restart • Esc to quit"))
 	}

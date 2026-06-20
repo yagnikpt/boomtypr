@@ -33,3 +33,7 @@ func CountLines(text string) int {
 	}
 	return count
 }
+
+func CalcCurrentWord(text string, position int) int {
+	return strings.Count(text[:position], " ") + 1
+}

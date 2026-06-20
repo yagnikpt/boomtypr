@@ -57,7 +57,3 @@ boomtypr
 
 ## Inspiration
 The UI and flow is inspired by [ashish0kumar/typtea](https://github.com/ashish0kumar/typtea)
-
-## License
-
-MIT
